@@ -8,27 +8,39 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func Register(c *gin.Context) {
+func Login(c *gin.Context) {
 	var input struct {
 		Username string
 		Password string
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+}
+
+func Register(c *gin.Context) {
+	var user models.User
+
+	if err := c.ShouldBindJSON(&user); err != nil {
+		if err := models.ValidateUser(&user); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), 10)
+	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
+	user.Password = string(hash)
 
-	user := models.User{Username: input.Username,Password: string(hash)}
-	
 	if err := models.DB.Create(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "asdasd"})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
